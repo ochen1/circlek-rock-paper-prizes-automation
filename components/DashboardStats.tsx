@@ -1,5 +1,7 @@
 import { AccountState } from '@/lib/types';
-import { GiftIcon, ClockIcon, AlertIcon } from './icons';
+import { Card, CardContent } from '@/components/ui/card';
+import { Gift, Clock, AlertTriangle, Users, Trophy } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface DashboardStatsProps {
   accounts: AccountState[];
@@ -11,42 +13,75 @@ export function DashboardStats({ accounts }: DashboardStatsProps) {
   const totalCooldown = accounts.filter(acc => acc.status === 'cooldown').length;
   const totalErrors = accounts.filter(acc => acc.status === 'error').length;
 
+  const stats = [
+    {
+      title: 'Total Accounts',
+      value: accounts.length,
+      icon: Users,
+      color: 'text-blue-400',
+      bgColor: 'from-blue-500/20 to-blue-600/10',
+      borderColor: 'border-blue-500/30',
+    },
+    {
+      title: 'Total Prizes',
+      value: totalPrizes,
+      icon: Trophy,
+      color: 'text-emerald-400',
+      bgColor: 'from-emerald-500/20 to-emerald-600/10',
+      borderColor: 'border-emerald-500/30',
+    },
+    {
+      title: 'Recently Claimed',
+      value: totalClaimed,
+      icon: Gift,
+      color: 'text-purple-400',
+      bgColor: 'from-purple-500/20 to-purple-600/10',
+      borderColor: 'border-purple-500/30',
+    },
+    {
+      title: 'On Cooldown',
+      value: totalCooldown,
+      icon: Clock,
+      color: 'text-amber-400',
+      bgColor: 'from-amber-500/20 to-amber-600/10',
+      borderColor: 'border-amber-500/30',
+    },
+    {
+      title: 'Errors',
+      value: totalErrors,
+      icon: AlertTriangle,
+      color: 'text-red-400',
+      bgColor: 'from-red-500/20 to-red-600/10',
+      borderColor: 'border-red-500/30',
+    },
+  ];
+
   return (
-    <div className="bg-gray-800 p-4 rounded-lg mt-6">
-      <h3 className="text-lg font-semibold text-white mb-4">Dashboard Stats</h3>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gray-700 p-3 rounded flex items-center">
-          <GiftIcon className="w-5 h-5 text-green-400 mr-2" />
-          <div>
-            <p className="text-xs text-gray-400">Total Prizes</p>
-            <p className="text-lg font-bold text-white">{totalPrizes}</p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-700 p-3 rounded flex items-center">
-          <GiftIcon className="w-5 h-5 text-indigo-400 mr-2" />
-          <div>
-            <p className="text-xs text-gray-400">Recently Claimed</p>
-            <p className="text-lg font-bold text-white">{totalClaimed}</p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-700 p-3 rounded flex items-center">
-          <ClockIcon className="w-5 h-5 text-yellow-400 mr-2" />
-          <div>
-            <p className="text-xs text-gray-400">On Cooldown</p>
-            <p className="text-lg font-bold text-white">{totalCooldown}</p>
-          </div>
-        </div>
-        
-        <div className="bg-gray-700 p-3 rounded flex items-center">
-          <AlertIcon className="w-5 h-5 text-red-400 mr-2" />
-          <div>
-            <p className="text-xs text-gray-400">Errors</p>
-            <p className="text-lg font-bold text-white">{totalErrors}</p>
-          </div>
-        </div>
-      </div>
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {stats.map((stat, index) => (
+        <motion.div
+          key={stat.title}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.1 }}
+          whileHover={{ scale: 1.05 }}
+          className="group"
+        >
+          <Card className={`glass-effect border ${stat.borderColor} hover:shadow-lg transition-all duration-300`}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-3xl font-bold text-white mb-1">{stat.value}</p>
+                  <p className="text-sm text-slate-400">{stat.title}</p>
+                </div>
+                <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
     </div>
   );
 }
