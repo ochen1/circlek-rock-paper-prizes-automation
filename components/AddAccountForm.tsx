@@ -67,7 +67,7 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
               type="text"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="ef58e850c4379eb0"
+              placeholder="75f9e21cef67d130"
               required
               disabled={isLoading}
               className="bg-slate-800/50 border-slate-600 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-mono text-sm text-white placeholder:text-slate-400"
