@@ -1,103 +1,192 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect, useCallback } from 'react';
+import { AccountState } from '@/lib/types';
+import { AddAccountForm } from '@/components/AddAccountForm';
+import { AccountCard } from '@/components/AccountCard';
+import { Spinner } from '@/components/icons';
+import { DashboardStats } from '@/components/DashboardStats';
+
+export default function HomePage() {
+  const [accounts, setAccounts] = useState<AccountState[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  const fetchData = useCallback(async () => {
+    setError(null);
+    try {
+      const response = await fetch('/api/state');
+      if (!response.ok) {
+        throw new Error('Failed to fetch account states from server.');
+      }
+      const data: AccountState[] = await response.json();
+      setAccounts(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData(); // Initial fetch
+    const interval = setInterval(fetchData, 60000); // Refresh every 60 seconds
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, [fetchData]);
+
+  const handleAccountAdded = () => {
+    setIsLoading(true);
+    fetchData(); // Immediately refresh data after adding an account
+  };
+
+  const handleAccountDeleted = () => {
+    setIsLoading(true);
+    fetchData(); // Refresh data after deleting an account
+  };
+
+  const handleAccountRefresh = async (phone: string) => {
+    try {
+      const response = await fetch(`/api/refresh-account?phone=${encodeURIComponent(phone)}`);
+      if (!response.ok) {
+        throw new Error('Failed to refresh account.');
+      }
+      fetchData();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // Filter and sort accounts
+  const filteredAccounts = accounts
+    .filter(account => {
+      // Apply status filter
+      if (filter !== 'all' && account.status !== filter) return false;
+      
+      // Apply search filter (phone number)
+      if (searchTerm && !account.phone.includes(searchTerm)) return false;
+      
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by status priority: prize_claimed > cooldown > error > idle
+      const statusPriority = {
+        prize_claimed: 1,
+        cooldown: 2,
+        error: 3,
+        checking: 4,
+        idle: 5
+      };
+      
+      return statusPriority[a.status] - statusPriority[b.status];
+    });
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-8">
+          <h1 className="text-4xl font-bold text-center text-indigo-400">Idle Farm Dashboard</h1>
+          <p className="text-center text-gray-400 mt-2">Automatically managing your game sessions.</p>
+        </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <AddAccountForm onAccountAdded={handleAccountAdded} />
+            
+            {accounts.length > 0 && (
+              <DashboardStats accounts={accounts} />
+            )}
+          </div>
+          
+          <div className="lg:col-span-2">
+            {accounts.length > 0 && (
+              <div className="bg-gray-800 p-4 rounded-lg mb-6">
+                <div className="flex flex-wrap gap-4 justify-between items-center">
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => setFilter('all')} 
+                      className={`px-3 py-1 rounded-full text-sm ${filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      All
+                    </button>
+                    <button 
+                      onClick={() => setFilter('prize_claimed')} 
+                      className={`px-3 py-1 rounded-full text-sm ${filter === 'prize_claimed' ? 'bg-green-800 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      Prizes
+                    </button>
+                    <button 
+                      onClick={() => setFilter('cooldown')} 
+                      className={`px-3 py-1 rounded-full text-sm ${filter === 'cooldown' ? 'bg-yellow-800 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      Cooldown
+                    </button>
+                    <button 
+                      onClick={() => setFilter('error')} 
+                      className={`px-3 py-1 rounded-full text-sm ${filter === 'error' ? 'bg-red-800 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      Errors
+                    </button>
+                  </div>
+                  
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search phone..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-3 pr-10 py-1 bg-gray-700 border-none rounded-md text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    {searchTerm && (
+                      <button 
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {isLoading && accounts.length === 0 ? (
+                <div className="flex justify-center items-center p-10">
+                  <Spinner />
+                  <span className="ml-4 text-lg">Loading accounts and running checks...</span>
+                </div>
+              ) : error ? (
+                <div className="bg-red-900 border border-red-700 text-red-300 p-4 rounded-lg">
+                  <p className="font-bold">An Error Occurred</p>
+                  <p>{error}</p>
+                </div>
+              ) : filteredAccounts.length > 0 ? (
+                filteredAccounts.map(account => (
+                  <AccountCard 
+                    key={account.phone} 
+                    account={account} 
+                    onDelete={handleAccountDeleted}
+                    onRefresh={handleAccountRefresh}
+                  />
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-10">
+                  {accounts.length > 0 ? (
+                    <p>No accounts match your filters.</p>
+                  ) : (
+                    <>
+                      <p>No accounts found.</p>
+                      <p>Add an account using the form to get started.</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </main>
   );
 }
