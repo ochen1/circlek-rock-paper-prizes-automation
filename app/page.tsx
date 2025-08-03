@@ -48,6 +48,7 @@ export default function HomePage() {
 
   const handleAccountAdded = () => fetchData(true);
   const handleAccountDeleted = () => fetchData(true);
+  const handleAccountUpdated = () => fetchData(true);
 
   const handleAccountRefresh = async (phone: string) => {
     try {
@@ -189,6 +190,7 @@ export default function HomePage() {
                         account={account} 
                         onDelete={handleAccountDeleted}
                         onRefresh={handleAccountRefresh}
+                        onUpdate={handleAccountUpdated}
                       />
                     </motion.div>
                   ))}

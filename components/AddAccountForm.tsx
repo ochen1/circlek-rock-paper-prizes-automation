@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useAccountManagement } from '@/lib/hooks';
 
 interface AddAccountFormProps {
   onAccountAdded: () => void;
@@ -17,34 +17,16 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
   const [phone, setPhone] = useState('');
   const [token, setToken] = useState('');
   const [note, setNote] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const { isLoading, addAccount } = useAccountManagement(onAccountAdded);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      const response = await fetch('/api/add-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, token, note }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add account');
-      }
-      
-      toast.success('Account added successfully!');
+    const success = await addAccount({ phone, token, note });
+    
+    if (success) {
       setPhone('');
       setToken('');
       setNote('');
-      onAccountAdded();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -71,6 +53,7 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="123-456-7890"
               required
+              disabled={isLoading}
               className="bg-slate-800/50 border-slate-600 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 text-white placeholder:text-slate-400"
             />
           </div>
@@ -86,6 +69,7 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
               onChange={(e) => setToken(e.target.value)}
               placeholder="ef58e850c4379eb0"
               required
+              disabled={isLoading}
               className="bg-slate-800/50 border-slate-600 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-mono text-sm text-white placeholder:text-slate-400"
             />
           </div>
@@ -100,6 +84,7 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Main account, test, etc."
               rows={2}
+              disabled={isLoading}
               className="bg-slate-800/50 border-slate-600 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none text-white placeholder:text-slate-400"
             />
           </div>
