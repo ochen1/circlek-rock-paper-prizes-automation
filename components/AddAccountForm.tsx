@@ -59,11 +59,11 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="token" className="text-sm font-medium text-slate-200">
+            <Label htmlFor="session" className="text-sm font-medium text-slate-200">
               Session Token
             </Label>
             <Input
-              id="token"
+              id="session"
               type="text"
               value={token}
               onChange={(e) => setToken(e.target.value)}
