@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readConfig, readState, writeState } from '@/lib/fileStore';
-import { startGame, endGame, getWallet } from '@/lib/apiClient';
+import { startGame, endGame, getWallet, getHub } from '@/lib/apiClient';
 import { GameStartResponse, CooldownResponse } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
@@ -32,20 +32,29 @@ export async function GET(request: NextRequest) {
     try {
       existing.status = 'checking';
       
-      // Try to start a game
-      const gameResponse = await startGame(account.token);
-      
-      // Check if it's a cooldown response
-      if ('completed' in gameResponse && gameResponse.completed) {
-        const cooldownResp = gameResponse as CooldownResponse;
+      // Get hub stats first to check for daily cooldown
+      const hubResponse = await getHub(account.token);
+      existing.hubStats = hubResponse;
+
+      if (hubResponse.played_today) {
         existing.status = 'cooldown';
-        existing.cooldownUntil = cooldownResp.time;
+        existing.cooldownUntil = hubResponse.tomorrow;
       } else {
-        // It's a game start response - claim the prize
-        const gameStartResp = gameResponse as GameStartResponse;
-        await endGame(account.token, gameStartResp.game_id);
-        existing.status = 'prize_claimed';
-        existing.lastPrize = gameStartResp.prize.title;
+        // Not played today, so try to start a game
+        const gameResponse = await startGame(account.token);
+        
+        // This case should be rare now, but good to keep as a fallback
+        if ('completed' in gameResponse && gameResponse.completed) {
+          const cooldownResp = gameResponse as CooldownResponse;
+          existing.status = 'cooldown';
+          existing.cooldownUntil = cooldownResp.time;
+        } else {
+          // It's a game start response - claim the prize
+          const gameStartResp = gameResponse as GameStartResponse;
+          await endGame(account.token, gameStartResp.game_id);
+          existing.status = 'prize_claimed';
+          existing.lastPrize = gameStartResp.prize.title;
+        }
       }
 
       // Always check wallet for prizes

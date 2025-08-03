@@ -1,4 +1,4 @@
-import { GameStartResponse, CooldownResponse, WalletListResponse } from './types';
+import { GameStartResponse, CooldownResponse, WalletListResponse, HubResponse } from './types';
 
 const API_URL = 'https://api.mgame.nu/server-2025-rpp-na-circlek/server.php';
 
@@ -64,4 +64,12 @@ export async function getWallet(session: string) {
     data: { session, name: 'default', getLink: true },
   };
   return postRequest<WalletListResponse>(payload);
+}
+
+export async function getHub(session: string) {
+  const payload = {
+    route: 'hub',
+    data: { session, name: 'default' },
+  };
+  return postRequest<HubResponse>(payload);
 }

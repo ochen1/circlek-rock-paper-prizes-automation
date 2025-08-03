@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Gift, Trash2, RefreshCw, Copy, ExternalLink, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Gift, Trash2, RefreshCw, Copy, ExternalLink, Clock, AlertCircle, CheckCircle2, Trophy, Zap, Coins } from 'lucide-react';
 import { CountdownTimer } from './CountdownTimer';
 import { toast } from 'sonner';
 
@@ -179,6 +179,64 @@ export function AccountCard({ account, onDelete, onRefresh }: AccountCardProps) 
               </Button>
             </div>
           </div>
+
+          {/* Hub Stats */}
+          {account.hubStats && (
+            <div className="mb-6 bg-gradient-to-r from-indigo-500/10 via-indigo-500/5 to-transparent border border-indigo-500/20 rounded-xl p-4">
+              <h4 className="text-indigo-200 font-medium mb-3 flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Daily Progress
+              </h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Played Today:</span>
+                  <span className={`font-medium ${account.hubStats.played_today ? 'text-green-400' : 'text-slate-300'}`}>
+                    {account.hubStats.played_today ? '✓ Yes' : '✗ No'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Games Completed:</span>
+                  <span className="text-slate-200 font-medium">{account.hubStats.completed}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Games Won:</span>
+                  <span className="text-emerald-400 font-medium">{account.hubStats.won}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Win Rate:</span>
+                  <span className="text-slate-200 font-medium">
+                    {account.hubStats.completed > 0 ? Math.round((account.hubStats.won / account.hubStats.completed) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+              
+              {/* Bonus Progress */}
+              {Object.keys(account.hubStats.rpp_bonus).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-indigo-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Coins className="h-4 w-4 text-yellow-400" />
+                    <span className="text-indigo-200 font-medium text-sm">Daily Bonuses</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {Object.entries(account.hubStats.rpp_bonus).map(([key, bonus]) => (
+                      <div
+                        key={key}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                          bonus.completed 
+                            ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                            : 'bg-slate-700/50 text-slate-400 border border-slate-600/50'
+                        }`}
+                      >
+                        <Coins className="h-3 w-3" />
+                        {bonus.value}
+                        {bonus.completed && <span className="text-green-400">✓</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Status Details */}
           <div className="space-y-4 mb-6">

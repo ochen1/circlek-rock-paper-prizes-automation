@@ -26,6 +26,7 @@ export interface AccountState {
   walletLink?: string;
   error?: string;
   note?: string;
+  hubStats?: HubResponse;
 }
 
 // API Response Types for the external game server
@@ -56,4 +57,19 @@ export interface CooldownResponse {
 export interface WalletListResponse {
     vouchers: Voucher[];
     walletLink: string;
+}
+
+export interface HubResponse {
+  tomorrow: string;
+  played_today: boolean;
+  completed: number;
+  won: number;
+  achievements: number;
+  rpp_bonus: Record<string, {
+    type: string;
+    value: number;
+    completed?: boolean;
+    today?: boolean;
+  }>;
+  unread_achievements: any[];
 }
