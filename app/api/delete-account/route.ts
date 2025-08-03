@@ -6,24 +6,18 @@ export async function POST(request: NextRequest) {
     const { phone } = await request.json();
 
     if (!phone) {
-      return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Phone is required' }, { status: 400 });
     }
 
     // Remove from config
     const config = await readConfig();
-    const newConfig = config.filter(acc => acc.phone !== phone);
-    
-    if (newConfig.length === config.length) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
-    }
-    
-    await writeConfig(newConfig);
-    
+    const filteredConfig = config.filter(acc => acc.phone !== phone);
+    await writeConfig(filteredConfig);
+
     // Remove from state
     const state = await readState();
-    const newState = { ...state };
-    delete newState[phone];
-    await writeState(newState);
+    delete state[phone];
+    await writeState(state);
 
     return NextResponse.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {

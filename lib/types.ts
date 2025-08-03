@@ -23,6 +23,7 @@ export interface AccountState {
   lastPrize?: string;
   cooldownUntil?: string;
   prizes: Voucher[];
+  walletLink?: string;
   error?: string;
   note?: string;
 }

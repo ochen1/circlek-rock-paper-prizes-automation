@@ -1,89 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readConfig, readState, writeState } from '@/lib/fileStore';
-import { AccountState } from '@/lib/types';
 import { startGame, endGame, getWallet } from '@/lib/apiClient';
+import { GameStartResponse, CooldownResponse } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   try {
-    const phone = request.nextUrl.searchParams.get('phone');
-    
+    const { searchParams } = new URL(request.url);
+    const phone = searchParams.get('phone');
+
     if (!phone) {
-      return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Phone is required' }, { status: 400 });
     }
-    
+
     const config = await readConfig();
     const account = config.find(acc => acc.phone === phone);
     
     if (!account) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
-    
-    // Get current state
+
     const currentState = await readState();
-    const existingState = currentState[phone] || {
+    const existing = currentState[phone] || {
       phone: account.phone,
       token: account.token,
-      status: 'idle',
+      status: 'idle' as const,
       lastChecked: null,
       prizes: [],
       note: account.note,
     };
-    
-    // Update state to checking
-    currentState[phone] = {
-      ...existingState,
-      status: 'checking',
-      lastChecked: new Date().toISOString(),
-    };
-    await writeState(currentState);
-    
-    // Process this account
-    const now = new Date();
-    const newState = { ...currentState };
-    
+
     try {
+      existing.status = 'checking';
+      
+      // Try to start a game
       const gameResponse = await startGame(account.token);
-
-      // Check for cooldown response
-      if ('completed' in gameResponse && gameResponse.completed === true) {
-        newState[phone] = {
-          ...existingState,
-          status: 'cooldown',
-          lastChecked: now.toISOString(),
-          // Set cooldown for 24 hours from now
-          cooldownUntil: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          note: account.note,
-        };
-      } 
-      // Check for a successful game start (a win)
-      else if ('game_id' in gameResponse) {
-        await endGame(account.token, gameResponse.game_id);
-        const wallet = await getWallet(account.token);
-
-        newState[phone] = {
-          ...existingState,
-          status: 'prize_claimed',
-          lastChecked: now.toISOString(),
-          lastPrize: gameResponse.prize.title,
-          prizes: wallet.vouchers,
-          cooldownUntil: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          note: account.note,
-        };
+      
+      // Check if it's a cooldown response
+      if ('completed' in gameResponse && gameResponse.completed) {
+        const cooldownResp = gameResponse as CooldownResponse;
+        existing.status = 'cooldown';
+        existing.cooldownUntil = cooldownResp.time;
+      } else {
+        // It's a game start response - claim the prize
+        const gameStartResp = gameResponse as GameStartResponse;
+        await endGame(account.token, gameStartResp.game_id);
+        existing.status = 'prize_claimed';
+        existing.lastPrize = gameStartResp.prize.title;
       }
-    } catch (error: any) {
-      console.error(`Error processing account ${phone}:`, error);
-      newState[phone] = {
-        ...existingState,
-        status: 'error',
-        lastChecked: now.toISOString(),
-        error: error.message || 'An unknown error occurred',
-        note: account.note,
-      };
+
+      // Always check wallet for prizes
+      const walletResponse = await getWallet(account.token);
+      existing.prizes = walletResponse.vouchers;
+      existing.walletLink = walletResponse.walletLink;
+      
+      existing.lastChecked = new Date().toISOString();
+      existing.error = undefined;
+      
+    } catch (error) {
+      existing.status = 'error';
+      existing.error = error instanceof Error ? error.message : 'Unknown error';
+      existing.lastChecked = new Date().toISOString();
     }
-    
-    await writeState(newState);
-    return NextResponse.json(Object.values(newState));
-    
+
+    currentState[phone] = existing;
+    await writeState(currentState);
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to refresh account:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

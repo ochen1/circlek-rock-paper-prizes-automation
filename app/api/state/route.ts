@@ -1,75 +1,73 @@
 import { NextResponse } from 'next/server';
 import { readConfig, readState, writeState } from '@/lib/fileStore';
-import { AccountState, GameStartResponse } from '@/lib/types';
 import { startGame, endGame, getWallet } from '@/lib/apiClient';
+import { AccountState, GameStartResponse, CooldownResponse } from '@/lib/types';
 
-// The main logic for processing accounts and playing the game
 export async function GET() {
-  const accountsConfig = await readConfig();
-  const currentState = await readState();
-  const newState: Record<string, AccountState> = {};
+  try {
+    const config = await readConfig();
+    const currentState = await readState();
+    const newState: Record<string, AccountState> = {};
 
-  const now = new Date();
-
-  for (const acc of accountsConfig) {
-    // Initialize state if not present
-    const existingState = currentState[acc.phone] || {
-      phone: acc.phone,
-      token: acc.token,
-      status: 'idle',
-      lastChecked: null,
-      prizes: [],
-      note: acc.note, // propagate note from config
-    };
-
-    // Check if we are in a cooldown period
-    if (existingState.cooldownUntil && new Date(existingState.cooldownUntil) > now) {
-        newState[acc.phone] = { ...existingState, status: 'cooldown', note: acc.note };
-        continue;
-    }
-
-    try {
-      const gameResponse = await startGame(acc.token);
-
-      // Check for cooldown response
-      if ('completed' in gameResponse && gameResponse.completed === true) {
-        newState[acc.phone] = {
-          ...existingState,
-          status: 'cooldown',
-          lastChecked: now.toISOString(),
-          // Set cooldown for 24 hours from now
-          cooldownUntil: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          note: acc.note,
-        };
-      } 
-      // Check for a successful game start (a win)
-      else if ('game_id' in gameResponse) {
-        const win = gameResponse as GameStartResponse;
-        await endGame(acc.token, win.game_id);
-        const wallet = await getWallet(acc.token);
-
-        newState[acc.phone] = {
-          ...existingState,
-          status: 'prize_claimed',
-          lastChecked: now.toISOString(),
-          lastPrize: win.prize.title,
-          prizes: wallet.vouchers,
-          cooldownUntil: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          note: acc.note,
-        };
-      }
-    } catch (error: any) {
-      console.error(`Error processing account ${acc.phone}:`, error);
-      newState[acc.phone] = {
-        ...existingState,
-        status: 'error',
-        lastChecked: now.toISOString(),
-        error: error.message || 'An unknown error occurred',
-        note: acc.note,
+    // Process each account
+    for (const account of config) {
+      const existing = currentState[account.phone] || {
+        phone: account.phone,
+        token: account.token,
+        status: 'idle' as const,
+        lastChecked: null,
+        prizes: [],
+        note: account.note,
       };
-    }
-  }
 
-  await writeState(newState);
-  return NextResponse.json(Object.values(newState));
+      // Update token and note from config
+      existing.token = account.token;
+      existing.note = account.note;
+
+      try {
+        existing.status = 'checking';
+        
+        // Try to start a game
+        const gameResponse = await startGame(account.token);
+        
+        // Check if it's a cooldown response
+        if ('completed' in gameResponse && gameResponse.completed) {
+          const cooldownResp = gameResponse as CooldownResponse;
+          existing.status = 'cooldown';
+          existing.cooldownUntil = cooldownResp.time;
+        } else {
+          // It's a game start response - claim the prize
+          const gameStartResp = gameResponse as GameStartResponse;
+          await endGame(account.token, gameStartResp.game_id);
+          existing.status = 'prize_claimed';
+          existing.lastPrize = gameStartResp.prize.title;
+        }
+
+        // Always check wallet for prizes
+        const walletResponse = await getWallet(account.token);
+        existing.prizes = walletResponse.vouchers;
+        existing.walletLink = walletResponse.walletLink;
+        
+        existing.lastChecked = new Date().toISOString();
+        existing.error = undefined;
+        
+      } catch (error) {
+        existing.status = 'error';
+        existing.error = error instanceof Error ? error.message : 'Unknown error';
+        existing.lastChecked = new Date().toISOString();
+      }
+
+      newState[account.phone] = existing;
+    }
+
+    await writeState(newState);
+    
+    // Return array format for frontend
+    const stateArray = Object.values(newState);
+    return NextResponse.json(stateArray);
+    
+  } catch (error) {
+    console.error('Failed to get state:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }

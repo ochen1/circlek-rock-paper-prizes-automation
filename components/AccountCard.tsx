@@ -162,12 +162,34 @@ export function AccountCard({ account, onDelete, onRefresh }: AccountCardProps) 
 
       {account.prizes && account.prizes.length > 0 && (
         <div className="mt-4 pt-4 border-t border-gray-600">
-          <h4 className="font-semibold text-white mb-2 flex items-center gap-2"><GiftIcon className="w-5 h-5"/> Wallet Prizes</h4>
-          <ul className="space-y-1 list-disc list-inside text-gray-400">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-white flex items-center gap-2">
+              <GiftIcon className="w-5 h-5"/> 
+              Wallet Prizes ({account.prizes.length})
+            </h4>
+            {account.walletLink && (
+              <a 
+                href={account.walletLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+              >
+                View Wallet
+              </a>
+            )}
+          </div>
+          <ul className="space-y-2">
             {account.prizes.map(prize => (
-              <li key={prize.id}>
-                <span className="text-indigo-400">{prize.title}</span>
-                <span className="text-xs"> (Expires: {formatDate(prize.expires)})</span>
+              <li key={prize.id} className="bg-gray-700 p-2 rounded border-l-4 border-green-500">
+                <div className="flex justify-between items-start">
+                  <span className="text-indigo-400 font-medium">{prize.title}</span>
+                  <span className="text-xs text-gray-400 ml-2">ID: {prize.id}</span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  <span>Created: {formatDate(prize.created)}</span>
+                  <span className="mx-2">•</span>
+                  <span>Expires: {formatDate(prize.expires)}</span>
+                </div>
               </li>
             ))}
           </ul>
