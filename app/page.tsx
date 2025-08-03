@@ -122,13 +122,13 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Sidebar */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:col-span-1 space-y-6"
+            className="lg:col-span-2 space-y-6"
           >
             <AddAccountForm onAccountAdded={handleAccountAdded} />
             

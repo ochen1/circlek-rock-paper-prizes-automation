@@ -20,7 +20,7 @@ export function CountdownTimer({ targetDate }: CountdownTimerProps) {
         
         setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
       } else {
-        setTimeLeft('Ready!');
+        setTimeLeft('Ready to play!');
       }
     };
 
@@ -30,9 +30,9 @@ export function CountdownTimer({ targetDate }: CountdownTimerProps) {
   }, [targetDate]);
 
   return (
-    <div className="text-sm font-mono">
-      <span className="text-yellow-400">⏱ Time remaining: </span>
-      <span className={timeLeft === 'Ready!' ? 'text-green-400' : 'text-white'}>
+    <div className="text-sm font-mono flex items-center gap-2">
+      <span className="text-amber-400">⏱ Time remaining: </span>
+      <span className={`font-semibold ${timeLeft === 'Ready to play!' ? 'text-green-400' : 'text-white'}`}>
         {timeLeft}
       </span>
     </div>
