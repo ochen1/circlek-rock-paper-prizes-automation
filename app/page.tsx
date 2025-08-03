@@ -11,66 +11,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, Zap, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-const fetchAccounts = async (): Promise<AccountState[]> => {
-  const response = await fetch('/api/state');
-  if (!response.ok) {
-    throw new Error('Failed to fetch account states');
-  }
-  return response.json();
-};
+import { useAccountList } from '@/lib/hooks';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function HomePage() {
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const queryClient = useQueryClient();
 
-  const { data: accounts = [], isLoading, isFetching } = useQuery<AccountState[]>({
-    queryKey: ['accounts'],
-    queryFn: fetchAccounts,
-    refetchInterval: 60000,
-  });
+  const { data: accounts = [], isLoading, isRefetching, refetch } = useAccountList();
 
-  const refreshAllMutation = useMutation({
-    mutationFn: fetchAccounts,
-    onSuccess: (data) => {
-      queryClient.setQueryData(['accounts'], data);
-      toast.success('Accounts refreshed successfully');
-    },
-    onError: () => {
-      toast.error('Failed to refresh accounts');
-    },
-  });
-
-  const refreshAccountMutation = useMutation({
-    mutationFn: async (phone: string) => {
-      const response = await fetch(`/api/refresh-account?phone=${encodeURIComponent(phone)}`);
-      if (!response.ok) throw new Error('Failed to refresh account');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      toast.success('Account refreshed');
-    },
-    onError: () => {
-      toast.error('Failed to refresh account');
-    },
-  });
-
-  const handleAccountRefresh = async (phone: string) => {
-    toast.loading('Refreshing account...', { id: `refresh-${phone}` });
+  const handleRefreshAll = async () => {
+    toast.loading('Refreshing accounts list...', { id: 'refresh-all' });
     try {
-      await refreshAccountMutation.mutateAsync(phone);
-      toast.success('Account refreshed', { id: `refresh-${phone}` });
+      await refetch();
+      toast.success('Account list refreshed', { id: 'refresh-all' });
     } catch (error) {
-      toast.error('Failed to refresh account', { id: `refresh-${phone}` });
+      toast.error('Failed to refresh accounts', { id: 'refresh-all' });
     }
-  };
-
-  const handleRefreshAll = () => {
-    toast.loading('Refreshing all accounts...');
-    refreshAllMutation.mutate();
   };
 
   const filteredAccounts = accounts
@@ -146,12 +104,12 @@ export default function HomePage() {
                 <CardContent className="space-y-2">
                   <Button 
                     onClick={handleRefreshAll}
-                    disabled={isFetching}
+                    disabled={isRefetching}
                     className="w-full"
                     size="sm"
                   >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-                    Refresh All
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
+                    Refresh Account List
                   </Button>
                 </CardContent>
               </Card>
@@ -192,10 +150,7 @@ export default function HomePage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
                     >
-                      <AccountCard 
-                        account={account} 
-                        onRefresh={handleAccountRefresh}
-                      />
+                      <AccountCard account={account} />
                     </motion.div>
                   ))}
                 </motion.div>

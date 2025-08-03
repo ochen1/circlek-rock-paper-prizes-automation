@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AccountState } from '@/lib/types';
+import { AccountState, GameStartResponse, CooldownResponse } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,12 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Gift, Trash2, RefreshCw, Copy, ExternalLink, Clock, AlertCircle, CheckCircle2, Trophy, Zap, Coins, Edit } from 'lucide-react';
 import { CountdownTimer } from './CountdownTimer';
 import { toast } from 'sonner';
-import { useAccountManagement } from '@/lib/hooks';
+import { useAccountManagement, useAccountHubStats, useAccountWallet, useStartGame, useEndGame } from '@/lib/hooks';
 import { EditAccountModal } from './EditAccountModal';
 
 interface AccountCardProps {
   account: AccountState;
-  onRefresh: (phone: string) => void;
 }
 
 const statusConfig = {
@@ -98,25 +97,91 @@ const timeLeft = (dateString: string | null | undefined): string => {
     return `in ${years}y`;
 }
 
-export function AccountCard({ account, onRefresh }: AccountCardProps) {
+export function AccountCard({ account }: AccountCardProps) {
   const config = statusConfig[account.status];
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { deleteAccount, isDeleting, updateAccount, isUpdating: isUpdatingNote } = useAccountManagement();
-
+  
   const [note, setNote] = useState(account.note || '');
   const [noteStatus, setNoteStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  
+  // Individual queries for account data
+  const { 
+    data: hubData, 
+    isLoading: isLoadingHub, 
+    refetch: refetchHub 
+  } = useAccountHubStats(account.phone);
+  
+  const { 
+    data: walletData, 
+    isLoading: isLoadingWallet, 
+    refetch: refetchWallet 
+  } = useAccountWallet(account.phone);
+  
+  // Game operations
+  const startGameMutation = useStartGame(account.phone);
+  const endGameMutation = useEndGame();
+  
+  const isLoading = isLoadingHub || isLoadingWallet || startGameMutation.isPending || endGameMutation.isPending;
 
   const handleDelete = async () => {
     await deleteAccount(account.phone);
   };
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
+    toast.loading('Refreshing account data...', { id: `refresh-${account.phone}` });
     try {
-      await onRefresh(account.phone);
-    } finally {
-      setIsRefreshing(false);
+      await Promise.all([refetchHub(), refetchWallet()]);
+      toast.success('Account data refreshed', { id: `refresh-${account.phone}` });
+    } catch (error) {
+      toast.error('Failed to refresh account data', { id: `refresh-${account.phone}` });
+    }
+  };
+
+  const handleStartGame = async () => {
+    toast.loading('Checking for prizes...', { id: `game-${account.phone}` });
+    try {
+      const result = await startGameMutation.mutateAsync();
+      
+      // Handle cooldown case
+      if ('completed' in result && result.completed) {
+        toast.info(`Account is on cooldown until ${new Date(result.time).toLocaleString()}`, { 
+          id: `game-${account.phone}` 
+        });
+        return;
+      }
+      
+      // Handle game start case - prompt for claiming
+      toast.success(
+        <div className="space-y-2">
+          <p>Prize available: {result.prize.title}</p>
+          <Button 
+            size="sm" 
+            onClick={() => handleClaimPrize(result.game_id)}
+            className="w-full"
+          >
+            Claim Now
+          </Button>
+        </div>, 
+        { id: `game-${account.phone}`, duration: 10000 }
+      );
+    } catch (error) {
+      toast.error(`Failed to check for prizes: ${error instanceof Error ? error.message : 'Unknown error'}`, { 
+        id: `game-${account.phone}` 
+      });
+    }
+  };
+  
+  const handleClaimPrize = async (gameId: string) => {
+    try {
+      await endGameMutation.mutateAsync({ phone: account.phone, gameId });
+      // Success toast is handled in the mutation
+      refetchWallet();
+    } catch (error) {
+      // Error toast is handled in the mutation
+      if (error instanceof Error && error.message !== 'Prize claim cancelled') {
+        console.error('Failed to claim prize:', error);
+      }
     }
   };
 
@@ -142,6 +207,12 @@ export function AccountCard({ account, onRefresh }: AccountCardProps) {
     }
   };
 
+  // Use hubData if available, fall back to account.hubStats
+  const hubStats = hubData || account.hubStats;
+  // Use walletData if available, fall back to account.prizes
+  const prizes = walletData?.vouchers || account.prizes || [];
+  const walletLink = walletData?.walletLink || account.walletLink;
+
   return (
     <>
       <Card className={`relative overflow-hidden bg-gradient-to-br from-slate-900/90 to-slate-800/90 border-slate-700/50 hover:shadow-2xl hover:shadow-${config.bg.split('-')[1]}-500/20 transition-all duration-500 backdrop-blur-sm ${config.glow}`}>
@@ -159,6 +230,7 @@ export function AccountCard({ account, onRefresh }: AccountCardProps) {
                     <config.icon className="h-3.5 w-3.5" />
                     {config.label}
                   </Badge>
+                  {isLoading && <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />}
                 </div>
                 
                 <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -193,23 +265,37 @@ export function AccountCard({ account, onRefresh }: AccountCardProps) {
                   size="sm"
                   variant="ghost"
                   onClick={handleRefresh}
-                  disabled={isRefreshing}
+                  disabled={isLoading}
                   className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </Button>
                 
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={handleDelete}
-                  disabled={isDeleting}
+                  disabled={isDeleting || isLoading}
                   className="h-8 w-8 p-0 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
+
+            {/* Play Button */}
+            <Button
+              onClick={handleStartGame}
+              disabled={isLoading || (hubStats?.played_today === true)}
+              className="mb-4 w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+            >
+              {isLoading ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="mr-2 h-4 w-4" />
+              )}
+              {hubStats?.played_today ? "Already Played Today" : "Play & Check for Prizes"}
+            </Button>
 
             {/* Status Details */}
             <div className="space-y-3 mb-4">
@@ -241,44 +327,45 @@ export function AccountCard({ account, onRefresh }: AccountCardProps) {
               {/* Left Column: Stats & Note */}
               <div className="space-y-4">
                 {/* Hub Stats */}
-                {account.hubStats && (
+                {hubStats && (
                   <div>
                     <h4 className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
                       <Trophy className="h-4 w-4 text-indigo-400" />
                       Daily Stats
+                      {isLoadingHub && <RefreshCw className="h-3 w-3 animate-spin text-slate-400 ml-auto" />}
                     </h4>
                     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 space-y-3">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-400">Played Today:</span>
-                          <span className={`font-medium ${account.hubStats.played_today ? 'text-green-400' : 'text-slate-300'}`}>
-                            {account.hubStats.played_today ? '✓ Yes' : '✗ No'}
+                          <span className={`font-medium ${hubStats.played_today ? 'text-green-400' : 'text-slate-300'}`}>
+                            {hubStats.played_today ? '✓ Yes' : '✗ No'}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-400">Games Won:</span>
-                          <span className="text-emerald-400 font-medium">{account.hubStats.won}</span>
+                          <span className="text-emerald-400 font-medium">{hubStats.won}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-400">Games Played:</span>
-                          <span className="text-slate-200 font-medium">{account.hubStats.completed}</span>
+                          <span className="text-slate-200 font-medium">{hubStats.completed}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-400">Win Rate:</span>
                           <span className="text-slate-200 font-medium">
-                            {account.hubStats.completed > 0 ? Math.round((account.hubStats.won / account.hubStats.completed) * 100) : 0}%
+                            {hubStats.completed > 0 ? Math.round((hubStats.won / hubStats.completed) * 100) : 0}%
                           </span>
                         </div>
                       </div>
                       
-                      {Object.keys(account.hubStats.rpp_bonus).length > 0 && (
+                      {Object.keys(hubStats.rpp_bonus).length > 0 && (
                         <div className="pt-2 border-t border-slate-700">
                           <div className="flex items-center gap-2 mb-1.5">
                             <Coins className="h-4 w-4 text-yellow-400" />
                             <span className="text-slate-400 font-medium text-sm">Bonuses</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            {Object.entries(account.hubStats.rpp_bonus).map(([key, bonus]) => (
+                            {Object.entries(hubStats.rpp_bonus).map(([key, bonus]) => (
                               <div
                                 key={key}
                                 className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
@@ -321,21 +408,22 @@ export function AccountCard({ account, onRefresh }: AccountCardProps) {
 
               {/* Right Column: Prizes */}
               <div>
-                {account.prizes && account.prizes.length > 0 && (
+                {prizes.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
                         <Gift className="h-4 w-4 text-emerald-400" />
-                        Wallet Prizes ({account.prizes.length})
+                        Wallet Prizes ({prizes.length})
+                        {isLoadingWallet && <RefreshCw className="h-3 w-3 animate-spin text-slate-400" />}
                       </h4>
-                      {account.walletLink && (
+                      {walletLink && (
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-xs border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
                           asChild
                         >
-                          <a href={account.walletLink} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                          <a href={walletLink} target="_blank" rel="noopener noreferrer" className="flex items-center">
                             <ExternalLink className="h-3 w-3 mr-1.5" />
                             View Wallet
                           </a>
@@ -344,7 +432,7 @@ export function AccountCard({ account, onRefresh }: AccountCardProps) {
                     </div>
                     
                     <div className="space-y-2 max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
-                      {account.prizes.map(prize => (
+                      {prizes.map(prize => (
                         <div key={prize.id} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-2.5 hover:bg-slate-700/30 transition-colors">
                           <h5 className="text-emerald-300 font-medium text-sm leading-tight mb-1.5">{prize.title}</h5>
                           <div className="flex justify-between items-center text-xs text-slate-400">
@@ -375,6 +463,6 @@ export function AccountCard({ account, onRefresh }: AccountCardProps) {
           setIsEditModalOpen(false);
         }}
       />
-      </>
+    </>
   );
 }
