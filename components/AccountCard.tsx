@@ -421,7 +421,6 @@ export function AccountCard({ account }: AccountCardProps) {
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-xs border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
-                          asChild
                         >
                           <a href={walletLink} target="_blank" rel="noopener noreferrer" className="flex items-center">
                             <ExternalLink className="h-3 w-3 mr-1.5" />
