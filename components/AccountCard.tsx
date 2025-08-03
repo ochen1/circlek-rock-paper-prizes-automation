@@ -12,9 +12,7 @@ import { EditAccountModal } from './EditAccountModal';
 
 interface AccountCardProps {
   account: AccountState;
-  onDelete: () => void;
   onRefresh: (phone: string) => void;
-  onUpdate: () => void;
 }
 
 const statusConfig = {
@@ -100,16 +98,11 @@ const timeLeft = (dateString: string | null | undefined): string => {
     return `in ${years}y`;
 }
 
-export function AccountCard({ account, onDelete, onRefresh, onUpdate }: AccountCardProps) {
+export function AccountCard({ account, onRefresh }: AccountCardProps) {
   const config = statusConfig[account.status];
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const { isLoading: isDeleting, deleteAccount } = useAccountManagement(onDelete);
-  const { isLoading: isUpdatingNote, updateAccount } = useAccountManagement(() => {
-    onUpdate();
-    setNoteStatus('saved');
-    setTimeout(() => setNoteStatus('idle'), 1200);
-  });
+  const { deleteAccount, isDeleting, updateAccount, isUpdating: isUpdatingNote } = useAccountManagement();
 
   const [note, setNote] = useState(account.note || '');
   const [noteStatus, setNoteStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -140,8 +133,11 @@ export function AccountCard({ account, onDelete, onRefresh, onUpdate }: AccountC
   const handleNoteBlur = async () => {
     if (note === (account.note || '')) return;
     setNoteStatus('saving');
-    const success = await updateAccount(account.phone, { phone: account.phone, token: account.token, note });
-    if (!success) {
+    try {
+      await updateAccount({ oldPhone: account.phone, newAccountData: { phone: account.phone, token: account.token, note } });
+      setNoteStatus('saved');
+      setTimeout(() => setNoteStatus('idle'), 1200);
+    } catch (e) {
       setNoteStatus('error');
     }
   };
@@ -376,7 +372,6 @@ export function AccountCard({ account, onDelete, onRefresh, onUpdate }: AccountC
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSuccess={() => {
-          onUpdate();
           setIsEditModalOpen(false);
         }}
       />

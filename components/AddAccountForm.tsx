@@ -9,24 +9,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Loader2 } from 'lucide-react';
 import { useAccountManagement } from '@/lib/hooks';
 
-interface AddAccountFormProps {
-  onAccountAdded: () => void;
-}
-
-export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
+export function AddAccountForm() {
   const [phone, setPhone] = useState('');
   const [token, setToken] = useState('');
   const [note, setNote] = useState('');
-  const { isLoading, addAccount } = useAccountManagement(onAccountAdded);
+  const { addAccount, isAdding } = useAccountManagement();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const success = await addAccount({ phone, token, note });
-    
-    if (success) {
+    try {
+      await addAccount({ phone, token, note });
       setPhone('');
       setToken('');
       setNote('');
+    } catch (error) {
+      // Error is handled by the hook's toast message
     }
   };
 
@@ -53,7 +50,7 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="123-456-7890"
               required
-              disabled={isLoading}
+              disabled={isAdding}
               className="bg-slate-800/50 border-slate-600 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 text-white placeholder:text-slate-400"
             />
           </div>
@@ -69,7 +66,7 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
               onChange={(e) => setToken(e.target.value)}
               placeholder="75f9e21cef67d130"
               required
-              disabled={isLoading}
+              disabled={isAdding}
               className="bg-slate-800/50 border-slate-600 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-mono text-sm text-white placeholder:text-slate-400"
             />
           </div>
@@ -84,17 +81,17 @@ export function AddAccountForm({ onAccountAdded }: AddAccountFormProps) {
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Main account, test, etc."
               rows={2}
-              disabled={isLoading}
+              disabled={isAdding}
               className="bg-slate-800/50 border-slate-600 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none text-white placeholder:text-slate-400"
             />
           </div>
           
           <Button
             type="submit"
-            disabled={isLoading}
+            disabled={isAdding}
             className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-black font-semibold py-2.5 shadow-lg hover:shadow-xl transition-all duration-300"
           >
-            {isLoading ? (
+            {isAdding ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Adding Account...

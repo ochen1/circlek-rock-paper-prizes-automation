@@ -18,7 +18,7 @@ export function EditAccountModal({ account, isOpen, onClose, onSuccess }: EditAc
   const [phone, setPhone] = useState(account.phone);
   const [token, setToken] = useState(account.token);
   const [note, setNote] = useState(account.note || '');
-  const { isLoading, updateAccount } = useAccountManagement(onSuccess);
+  const { updateAccount, isUpdating } = useAccountManagement();
 
   useEffect(() => {
     if (isOpen) {
@@ -30,9 +30,12 @@ export function EditAccountModal({ account, isOpen, onClose, onSuccess }: EditAc
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const success = await updateAccount(account.phone, { phone, token, note });
-    if (success) {
+    try {
+      await updateAccount({ oldPhone: account.phone, newAccountData: { phone, token, note } });
+      onSuccess();
       onClose();
+    } catch (error) {
+      // error is handled by the hook
     }
   };
 
@@ -78,8 +81,8 @@ export function EditAccountModal({ account, isOpen, onClose, onSuccess }: EditAc
           </div>
           <div className="flex justify-end gap-4 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="border-slate-600 text-slate-300 hover:bg-slate-700">Cancel</Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            <Button type="submit" disabled={isUpdating}>
+              {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Changes
             </Button>
           </div>

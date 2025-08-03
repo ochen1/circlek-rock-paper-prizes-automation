@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AccountState } from '@/lib/types';
 import { AddAccountForm } from '@/components/AddAccountForm';
@@ -11,60 +11,66 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, Zap, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+const fetchAccounts = async (): Promise<AccountState[]> => {
+  const response = await fetch('/api/state');
+  if (!response.ok) {
+    throw new Error('Failed to fetch account states');
+  }
+  return response.json();
+};
 
 export default function HomePage() {
-  const [accounts, setAccounts] = useState<AccountState[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const queryClient = useQueryClient();
 
-  const fetchData = async (showToast = false) => {
-    try {
-      setIsRefreshing(true);
-      const response = await fetch('/api/state');
-      if (!response.ok) {
-        throw new Error('Failed to fetch account states');
-      }
-      const data: AccountState[] = await response.json();
-      setAccounts(data);
-      if (showToast) {
-        toast.success('Accounts refreshed successfully');
-      }
-    } catch (error: any) {
+  const { data: accounts = [], isLoading, isFetching } = useQuery<AccountState[]>({
+    queryKey: ['accounts'],
+    queryFn: fetchAccounts,
+    refetchInterval: 60000,
+  });
+
+  const refreshAllMutation = useMutation({
+    mutationFn: fetchAccounts,
+    onSuccess: (data) => {
+      queryClient.setQueryData(['accounts'], data);
+      toast.success('Accounts refreshed successfully');
+    },
+    onError: () => {
       toast.error('Failed to refresh accounts');
-      console.error('Fetch error:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+    },
+  });
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => fetchData(), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleAccountAdded = () => fetchData(true);
-  const handleAccountDeleted = () => fetchData(true);
-  const handleAccountUpdated = () => fetchData(true);
-
-  const handleAccountRefresh = async (phone: string) => {
-    try {
-      toast.loading('Refreshing account...', { id: phone });
+  const refreshAccountMutation = useMutation({
+    mutationFn: async (phone: string) => {
       const response = await fetch(`/api/refresh-account?phone=${encodeURIComponent(phone)}`);
       if (!response.ok) throw new Error('Failed to refresh account');
-      await fetchData();
-      toast.success('Account refreshed', { id: phone });
-    } catch (error: any) {
-      toast.error('Failed to refresh account', { id: phone });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast.success('Account refreshed');
+    },
+    onError: () => {
+      toast.error('Failed to refresh account');
+    },
+  });
+
+  const handleAccountRefresh = async (phone: string) => {
+    toast.loading('Refreshing account...', { id: `refresh-${phone}` });
+    try {
+      await refreshAccountMutation.mutateAsync(phone);
+      toast.success('Account refreshed', { id: `refresh-${phone}` });
+    } catch (error) {
+      toast.error('Failed to refresh account', { id: `refresh-${phone}` });
     }
   };
 
-  const handleRefreshAll = async () => {
+  const handleRefreshAll = () => {
     toast.loading('Refreshing all accounts...');
-    await fetchData(true);
+    refreshAllMutation.mutate();
   };
 
   const filteredAccounts = accounts
@@ -130,7 +136,7 @@ export default function HomePage() {
             transition={{ delay: 0.2 }}
             className="lg:col-span-2 space-y-6"
           >
-            <AddAccountForm onAccountAdded={handleAccountAdded} />
+            <AddAccountForm />
             
             {accounts.length > 0 && (
               <Card>
@@ -140,11 +146,11 @@ export default function HomePage() {
                 <CardContent className="space-y-2">
                   <Button 
                     onClick={handleRefreshAll}
-                    disabled={isRefreshing}
+                    disabled={isFetching}
                     className="w-full"
                     size="sm"
                   >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
                     Refresh All
                   </Button>
                 </CardContent>
@@ -188,9 +194,7 @@ export default function HomePage() {
                     >
                       <AccountCard 
                         account={account} 
-                        onDelete={handleAccountDeleted}
                         onRefresh={handleAccountRefresh}
-                        onUpdate={handleAccountUpdated}
                       />
                     </motion.div>
                   ))}
