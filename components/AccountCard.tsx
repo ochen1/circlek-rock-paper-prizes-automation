@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Gift, Trash2, RefreshCw, Copy, ExternalLink, Clock, AlertCircle, CheckCircle2, Trophy, Zap, Coins, Edit, ShoppingCart } from 'lucide-react';
+import { Gift, Trash2, RefreshCw, Copy, ExternalLink, Clock, AlertCircle, CheckCircle2, Trophy, Zap, Coins, Edit, ShoppingCart, ClipboardList } from 'lucide-react';
 import { CountdownTimer } from './CountdownTimer';
 import { toast } from 'sonner';
 import { useAccountManagement, useAccountHubStats, useAccountWallet, useStartGame, useEndGame } from '@/lib/hooks';
@@ -306,6 +306,21 @@ export function AccountCard({ account }: AccountCardProps) {
     }
   };
 
+  // Helper to copy all prizes as links
+  const handleCopyAllPrizes = () => {
+    if (!prizes.length) return;
+    const lines = prizes
+      .filter(prize => !isExpired(prize.expires))
+      .map(prize => `${prize.title}: ${getRedeemUrl(prize.id)}`);
+    if (lines.length === 0) {
+      toast.info('No valid prizes to copy');
+      return;
+    }
+    const txt = lines.join('\n');
+    navigator.clipboard.writeText(txt);
+    toast.success('All prize links copied to clipboard');
+  };
+
   // Use hubData if available, fall back to account.hubStats
   const hubStats = hubData || account.hubStats;
   // Use walletData if available, fall back to account.prizes
@@ -515,18 +530,30 @@ export function AccountCard({ account }: AccountCardProps) {
                         Wallet Prizes ({prizes.length})
                         {isLoadingWallet && <RefreshCw className="h-3 w-3 animate-spin text-slate-400" />}
                       </h4>
-                      {walletLink && (
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-xs border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
+                          onClick={handleCopyAllPrizes}
+                          title="Copy all prizes as links"
                         >
-                          <a href={walletLink} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                            <ExternalLink className="h-3 w-3 mr-1.5" />
-                            View Wallet
-                          </a>
+                          <ClipboardList className="h-3 w-3 mr-1.5" />
+                          Copy All
                         </Button>
-                      )}
+                        {walletLink && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
+                          >
+                            <a href={walletLink} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                              <ExternalLink className="h-3 w-3 mr-1.5" />
+                              View Wallet
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-2">

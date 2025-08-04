@@ -9,7 +9,7 @@ import { DashboardStats } from '@/components/DashboardStats';
 import { SearchAndFilters } from '@/components/SearchAndFilters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { RefreshCw, Zap, AlertCircle } from 'lucide-react';
+import { RefreshCw, Zap, AlertCircle, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAccountList } from '@/lib/hooks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -29,6 +29,43 @@ export default function HomePage() {
     } catch (error) {
       toast.error('Failed to refresh accounts', { id: 'refresh-all' });
     }
+  };
+
+  // Helper to get redeem URL (same as in AccountCard)
+  const getRedeemUrl = (voucherId: string): string => {
+    return `https://rockpaperprizes.com/?p=${voucherId}&wallet=true`;
+  };
+
+  // Helper to check if a prize is expired
+  const isExpired = (dateString: string | null | undefined): boolean => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const now = new Date();
+    return date.getTime() < now.getTime();
+  };
+
+  // Copy all accounts and their prizes as text, using wallet data from react-query
+  const handleCopyAllAccountsPrizes = () => {
+    if (!accounts.length) return;
+    let lines: string[] = [];
+    accounts.forEach(account => {
+      lines.push(`Account: ${account.phone}`);
+      // Use wallet data from tanstack query cache
+      const walletData = queryClient.getQueryData(["account", account.phone, "wallet"]) as { vouchers?: any[] } | undefined;
+      const prizes = walletData?.vouchers || [];
+      const validPrizes = prizes.filter(prize => !isExpired(prize.expires));
+      if (validPrizes.length === 0) {
+        lines.push('  (No valid prizes)');
+      } else {
+        validPrizes.forEach(prize => {
+          lines.push(`  - ${prize.title}: ${getRedeemUrl(prize.id)}`);
+        });
+      }
+      lines.push('');
+    });
+    const txt = lines.join('\n');
+    navigator.clipboard.writeText(txt);
+    toast.success('All accounts & prize links copied to clipboard');
   };
 
   const filteredAccounts = accounts
@@ -110,6 +147,15 @@ export default function HomePage() {
                   >
                     <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
                     Refresh Account List
+                  </Button>
+                  <Button
+                    onClick={handleCopyAllAccountsPrizes}
+                    className="w-full"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Copy All Accounts & Prizes
                   </Button>
                 </CardContent>
               </Card>
