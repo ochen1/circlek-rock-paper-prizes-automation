@@ -151,20 +151,57 @@ export function AccountCard({ account }: AccountCardProps) {
         return;
       }
       
-      // Handle game start case - prompt for claiming
-      toast.success(
-        <div className="space-y-2">
-          <p>Prize available: {result.prize.title}</p>
-          <Button 
-            size="sm" 
-            onClick={() => handleClaimPrize(result.game_id)}
-            className="w-full"
-          >
-            Claim Now
-          </Button>
-        </div>, 
-        { id: `game-${account.phone}`, duration: 10000 }
-      );
+      // Handle game start case - check if there's a prize
+      if (result?.prize?.title) {
+        // Prize available - show enhanced claiming UI
+        toast.success(
+          <div className="flex flex-col space-y-3 p-2">
+            <div className="flex items-center space-x-3">
+              <div className="w-3 h-3 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full animate-pulse"></div>
+              <span className="font-semibold text-emerald-800">🎉 Prize Won!</span>
+            </div>
+            <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-3 border border-emerald-200">
+              <p className="text-sm font-medium text-emerald-800 mb-2">{result.prize.title}</p>
+              <button 
+                onClick={() => handleClaimPrize(result.game_id)}
+                className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
+              >
+                <Gift className="w-4 h-4" />
+                <span>Claim Prize</span>
+              </button>
+            </div>
+          </div>, 
+          { 
+            id: `game-${account.phone}`, 
+            duration: 15000,
+            style: {
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+              border: '1px solid #86efac',
+              color: '#065f46',
+              padding: '8px',
+              borderRadius: '12px',
+              minWidth: '320px'
+            }
+          }
+        );
+      } else {
+        // No prize - game was lost
+        toast.info(
+          <div className="flex items-center space-x-3">
+            <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full"></div>
+            <span className="text-amber-800 font-medium">No prize this time - better luck next round!</span>
+          </div>, 
+          { 
+            id: `game-${account.phone}`,
+            style: {
+              background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+              border: '1px solid #fbbf24',
+              color: '#92400e',
+              borderRadius: '8px'
+            }
+          }
+        );
+      }
     } catch (error) {
       toast.error(`Failed to check for prizes: ${error instanceof Error ? error.message : 'Unknown error'}`, { 
         id: `game-${account.phone}` 
@@ -173,14 +210,65 @@ export function AccountCard({ account }: AccountCardProps) {
   };
   
   const handleClaimPrize = async (gameId: string) => {
+    // Dismiss the original toast
+    toast.dismiss(`game-${account.phone}`);
+    
     try {
+      toast.loading(
+        <div className="flex items-center space-x-3">
+          <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+          <span className="font-medium text-blue-800">Claiming your prize...</span>
+        </div>,
+        { 
+          id: `claim-${account.phone}`,
+          style: {
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+            border: '1px solid #60a5fa',
+            color: '#1e40af',
+            borderRadius: '8px'
+          }
+        }
+      );
+      
       await endGameMutation.mutateAsync({ phone: account.phone, gameId });
-      // Success toast is handled in the mutation
+      
+      toast.success(
+        <div className="flex items-center space-x-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          <span className="font-semibold text-emerald-800">Prize claimed successfully!</span>
+        </div>,
+        { 
+          id: `claim-${account.phone}`,
+          style: {
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            border: '1px solid #22c55e',
+            color: '#065f46',
+            borderRadius: '8px'
+          }
+        }
+      );
+      
       refetchWallet();
     } catch (error) {
-      // Error toast is handled in the mutation
       if (error instanceof Error && error.message !== 'Prize claim cancelled') {
+        toast.error(
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="w-4 h-4 text-red-600" />
+            <span className="text-red-800">Failed to claim prize</span>
+          </div>,
+          { 
+            id: `claim-${account.phone}`,
+            style: {
+              background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+              border: '1px solid #f87171',
+              color: '#991b1b',
+              borderRadius: '8px'
+            }
+          }
+        );
         console.error('Failed to claim prize:', error);
+      } else {
+        toast.dismiss(`claim-${account.phone}`);
       }
     }
   };
