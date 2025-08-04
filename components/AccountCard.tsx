@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Gift, Trash2, RefreshCw, Copy, ExternalLink, Clock, AlertCircle, CheckCircle2, Trophy, Zap, Coins, Edit } from 'lucide-react';
+import { Gift, Trash2, RefreshCw, Copy, ExternalLink, Clock, AlertCircle, CheckCircle2, Trophy, Zap, Coins, Edit, ShoppingCart } from 'lucide-react';
 import { CountdownTimer } from './CountdownTimer';
 import { toast } from 'sonner';
 import { useAccountManagement, useAccountHubStats, useAccountWallet, useStartGame, useEndGame } from '@/lib/hooks';
@@ -96,6 +96,17 @@ const timeLeft = (dateString: string | null | undefined): string => {
     if (months < 12) return `in ${months}mo`;
     return `in ${years}y`;
 }
+
+const isExpired = (dateString: string | null | undefined): boolean => {
+  if (!dateString) return false;
+  const date = new Date(dateString);
+  const now = new Date();
+  return date.getTime() < now.getTime();
+};
+
+const getRedeemUrl = (voucherId: string): string => {
+  return `https://rockpaperprizes.com/?p=${voucherId}&wallet=true`;
+};
 
 export function AccountCard({ account }: AccountCardProps) {
   const config = statusConfig[account.status];
@@ -518,22 +529,71 @@ export function AccountCard({ account }: AccountCardProps) {
                       )}
                     </div>
                     
-                    <div className="space-y-2 max-h-[240px] overflow-y-auto custom-scrollbar pr-2">
-                      {prizes.map(prize => (
-                        <div key={prize.id} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-2.5 hover:bg-slate-700/30 transition-colors">
-                          <h5 className="text-emerald-300 font-medium text-sm leading-tight mb-1.5">{prize.title}</h5>
-                          <div className="flex justify-between items-center text-xs text-slate-400">
-                            <div className="flex items-center gap-1" title={formatDate(prize.created)}>
-                              <span>✓</span>
-                              <span>Created {timeAgo(prize.created)}</span>
+                    <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-2">
+                      {prizes.map(prize => {
+                        const expired = isExpired(prize.expires);
+                        const expiresIn = timeLeft(prize.expires);
+                        
+                        return (
+                          <div 
+                            key={prize.id} 
+                            className={`
+                              bg-slate-800/50 border rounded-lg p-2.5 transition-all duration-200
+                              ${expired 
+                                ? 'border-red-500/30 bg-red-500/5' 
+                                : 'border-slate-700/50 hover:bg-slate-700/30 hover:border-emerald-500/30'
+                              }
+                            `}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <h5 className={`font-medium text-sm leading-tight flex-1 ${
+                                expired ? 'text-red-300/70' : 'text-emerald-300'
+                              }`}>
+                                {prize.title}
+                              </h5>
+                              {!expired && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => window.open(getRedeemUrl(prize.id), '_blank')}
+                                  className="h-6 px-2 text-xs bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0 shadow-sm hover:shadow-md transition-all duration-200"
+                                >
+                                  <ShoppingCart className="h-3 w-3 mr-1" />
+                                  Redeem
+                                </Button>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1" title={formatDate(prize.expires)}>
-                              <Clock className="h-3 w-3" />
-                              <span>Expires {timeLeft(prize.expires)}</span>
+                            
+                            <div className="flex justify-between items-center text-xs">
+                              <div className={`flex items-center gap-1 ${
+                                expired ? 'text-red-400/70' : 'text-slate-400'
+                              }`} title={formatDate(prize.created)}>
+                                <CheckCircle2 className="h-3 w-3" />
+                                <span>Won {timeAgo(prize.created)}</span>
+                              </div>
+                              
+                              <div className={`flex items-center gap-1 ${
+                                expired 
+                                  ? 'text-red-400 font-medium' 
+                                  : expiresIn.includes('d') || expiresIn.includes('h')
+                                    ? 'text-amber-400'
+                                    : 'text-slate-400'
+                              }`} title={formatDate(prize.expires)}>
+                                <Clock className="h-3 w-3" />
+                                <span>
+                                  {expired ? 'Expired' : `Expires ${expiresIn}`}
+                                </span>
+                              </div>
                             </div>
+                            
+                            {expired && (
+                              <div className="mt-2 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-300 flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                <span>This voucher has expired and cannot be redeemed</span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
