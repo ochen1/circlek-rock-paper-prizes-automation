@@ -10,7 +10,7 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const phone = decodeURIComponent(params.phone);
+    const phone = decodeURIComponent((await params).phone);
     
     // Get account from config
     const config = await readConfig();
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       } else {
         // It's a game start response - but we don't auto-claim anymore
         existing.status = 'prize_claimed';
-        existing.lastPrize = gameResponse.prize.title;
+        // existing.lastPrize = gameResponse.prize.title;
       }
       
       existing.lastChecked = new Date().toISOString();

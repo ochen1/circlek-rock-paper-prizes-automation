@@ -10,7 +10,7 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const phone = decodeURIComponent(params.phone);
+    const phone = decodeURIComponent((await params).phone);
     
     // Get account from config
     const config = await readConfig();
