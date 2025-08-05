@@ -198,9 +198,21 @@ export function AccountCard({ account }: AccountCardProps) {
       } else {
         // No prize - game was lost
         toast.info(
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full"></div>
-            <span className="text-amber-800 font-medium">No prize this time - better luck next round!</span>
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center space-x-3">
+              <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full"></div>
+              <span className="text-amber-800 font-medium">No prize this time - better luck next round!</span>
+            </div>
+            {/* Add End Game button if result.game_id exists */}
+            {result?.game_id && (
+              <button
+                onClick={() => handleClaimPrize(result.game_id)}
+                className="w-full mt-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>End Game</span>
+              </button>
+            )}
           </div>, 
           { 
             id: `game-${account.phone}`,
