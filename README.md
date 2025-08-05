@@ -1,4 +1,4 @@
-# PrizePilot 🚀
+# CircleK Rock Paper Prizes Automation 🚀
 
 **PrizePilot** is a sleek, powerful dashboard for automating and managing your Circle K Rock Paper Prizes accounts. Stop manually checking for prizes and let PrizePilot handle the grind. With a beautiful and intuitive interface, you can effortlessly track the status of all your accounts, view your winnings, and manage your farm with ease.
 
