@@ -45,29 +45,7 @@ cd prizepilot
 pnpm install
 ```
 
-### 2. Configuration
-
-PrizePilot uses a `config.json` file in the root of the project to manage your accounts.
-
-1.  Create a file named `config.json` in the project's root directory.
-2.  Add your account(s) to this file using the following format. You can find your session token by inspecting network requests on the official game website.
-
-    ```json
-    [
-        {
-            "phone": "123-456-7890",
-            "token": "ef58e850c4379eb0",
-            "note": "Main account"
-        },
-        {
-            "phone": "098-765-4321",
-            "token": "dbfba631ff5723ee",
-            "note": "Test account"
-        }
-    ]
-    ```
-
-### 3. Running the Application
+### 2. Running the Application
 
 Start the development server:
 
