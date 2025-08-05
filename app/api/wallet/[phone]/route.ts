@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readConfig, readState, writeState } from '@/lib/fileStore';
 import { getWallet } from '@/lib/apiClient';
 
-interface RouteParams {
-  params: {
-    phone: string;
-  }
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: {params: Promise<{phone: string}>}) {
   try {
-    const phone = decodeURIComponent(params.phone);
+    const phone = decodeURIComponent((await params).phone);
     
     // Get account from config
     const config = await readConfig();

@@ -48,16 +48,16 @@ export default function HomePage() {
   const handleCopyAllAccountsPrizes = () => {
     if (!accounts.length) return;
     let lines: string[] = [];
-    accounts.forEach(account => {
+    accounts.forEach((account: AccountState) => {
       lines.push(`Account: ${account.phone}`);
       // Use wallet data from tanstack query cache
-      const walletData = queryClient.getQueryData(["account", account.phone, "wallet"]) as { vouchers?: any[] } | undefined;
+      const walletData = queryClient.getQueryData(["account", account.phone, "wallet"]) as { vouchers?: { id: string; title: string; expires: string }[] } | undefined;
       const prizes = walletData?.vouchers || [];
-      const validPrizes = prizes.filter(prize => !isExpired(prize.expires));
+      const validPrizes = prizes.filter((prize: { expires: string }) => !isExpired(prize.expires));
       if (validPrizes.length === 0) {
         lines.push('  (No valid prizes)');
       } else {
-        validPrizes.forEach(prize => {
+        validPrizes.forEach((prize: { id: string; title: string }) => {
           lines.push(`  - ${prize.title}: ${getRedeemUrl(prize.id)}`);
         });
       }
@@ -68,14 +68,14 @@ export default function HomePage() {
     toast.success('All accounts & prize links copied to clipboard');
   };
 
-  const filteredAccounts = accounts
-    .filter(account => {
+  const filteredAccounts = (accounts as AccountState[])
+    .filter((account: AccountState) => {
       if (filter !== 'all' && account.status !== filter) return false;
       if (searchTerm && !account.phone.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       return true;
     })
-    .sort((a, b) => {
-      const statusPriority = { prize_claimed: 1, cooldown: 2, error: 3, checking: 4, idle: 5 };
+    .sort((a: AccountState, b: AccountState) => {
+      const statusPriority: Record<AccountState['status'], number> = { prize_claimed: 1, cooldown: 2, error: 3, checking: 4, idle: 5 };
       return statusPriority[a.status] - statusPriority[b.status];
     });
 
@@ -189,7 +189,7 @@ export default function HomePage() {
                   exit={{ opacity: 0 }}
                   className="grid gap-6"
                 >
-                  {filteredAccounts.map((account, index) => (
+                  {filteredAccounts.map((account: AccountState, index: number) => (
                     <motion.div
                       key={account.phone}
                       initial={{ opacity: 0, y: 20 }}

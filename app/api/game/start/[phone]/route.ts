@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readConfig, readState, writeState } from '@/lib/fileStore';
 import { startGame } from '@/lib/apiClient';
 
-interface RouteParams {
-  params: {
-    phone: string;
-  }
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: {params: Promise<{phone: string}>}) {
   try {
     const phone = decodeURIComponent((await params).phone);
     
